@@ -6,7 +6,7 @@
 /*   By: wlin <wlin@student.42.fr>                  +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2018/01/21 15:22:40 by wlin              #+#    #+#             */
-/*   Updated: 2018/01/31 14:38:35 by wlin             ###   ########.fr       */
+/*   Updated: 2018/02/02 18:02:42 by wlin             ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -24,49 +24,44 @@
 #include <time.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <unistd.h>
 #include "N_puzzle.hpp"
 #include "Heuristic.hpp"
 
 class	Puzzle {
-	protected:
+	private:
 		const int		_size;
-		const Position	_start;
-		const IntMatrix	&_state;
+		Position		_start;
+		IntMatrix		&_state;
 		Puzzle			*_parent;
 		int				_g;
 		int				_h;
 		int				_f;
+		std::vector<Position>	*generate_moves(void);
+		IntMatrix				*clone_state(void);
+		int						within_bounds(Position const &pos);
 
 	public:
+		// static IntMatrix				*solution;
+		// static  std::vector<Position>	*solution_htbl;
 		// Puzzle(int size);
-		Puzzle(const IntMatrix &state, const Position start, Puzzle *parent);
+		Puzzle(IntMatrix &state, Position start, Puzzle *parent);
 		~Puzzle(void);
+		Puzzle					&operator = (const Puzzle &src);
+		bool					operator < (const Puzzle &rhs);
 
 		void					display(void);
-
-		IntMatrix				*clone_state(void);
-		std::list<Puzzle*>		*generate_successors(void);
-		std::vector<Position*>	*generate_moves(void);
-
 		void					calculate_costs(IHeuristic &heuristic);
-		int						within_bounds(Position const &pos);
+		std::list<Puzzle*>		*generate_successors(void);
+		void					trace_path(void);
 
 		int						get_f(void) const {return this->_f;}
 		int						get_g(void) const {return this->_g;}
-		int						cmp_g(Puzzle const &src) const {return this->_g < src._g;}
-		IntMatrix				get_state(void) const {return this->_state;}
-
-		bool					operator < (Puzzle const &rhs) {
-			return this->_f < rhs._f;}
-
-		bool					operator == (Puzzle const &rhs) {
-			return this->_state == rhs._state;}
+		int						get_h(void) const {return this->_h;}
+		Position				get_start(void) const {return this->_start;}
+		IntMatrix				&get_state(void) const {return this->_state;}
+		Puzzle					*get_parent(void) const {return this->_parent;}
+		bool					cmp_g(Puzzle *rhs) {return this->_g < rhs->_g;}
 };
-
-Position				find_start(void);
-void					move_states(IntMatrix &state, Position const &p1, Position const &p2);
-IntMatrix				*generate_solution(int size);
-IntMatrix				*generate_random(int size);
-std::vector<Position>	*generate_solution_htbl(const IntMatrix &solution);
 
 #endif

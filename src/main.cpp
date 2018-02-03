@@ -6,7 +6,7 @@
 /*   By: wlin <wlin@student.42.fr>                  +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2018/01/21 15:29:01 by wlin              #+#    #+#             */
-/*   Updated: 2018/01/31 14:36:31 by wlin             ###   ########.fr       */
+/*   Updated: 2018/02/02 19:03:31 by wlin             ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -14,14 +14,27 @@
 #include "Puzzle.hpp"
 #include "Heuristic.hpp"
 #include "Astar.hpp"
-#include <regex>
 
-int g_size = 0;
 IntMatrix *solution = NULL;
 std::vector<Position> *solution_htbl = NULL;
 
+void	display_solutions(void) {
+	for (int y = 0; y < ::solution->size(); y++) {
+		for (int x = 0; x < ::solution->size(); x++) {
+			std::cout << std::setw(3) << (*::solution)[y][x];
+		}
+		std::cout << std::endl;
+	}
+	for (int i = 0; i < (::solution->size()*::solution->size()); i++) {
+		std::cout << i << " : "
+			<< (*::solution_htbl)[i].x
+			<< " , "
+			<< (*::solution_htbl)[i].y
+			<< std::endl;
+	}
+}
 
-void	display_usage(void) {
+void		display_usage(void) {
 	std::cout
 		<< "usage: ./n_puzzle [-mlh] size | filename"
 		<< std::endl
@@ -39,7 +52,7 @@ void	display_usage(void) {
 		<< std::endl;
 }
 
-IHeuristic *parse_heuristic(char *flag) {
+IHeuristic	*parse_heuristic(char *flag) {
 		std::string h_flag(flag);
 		if (h_flag == "-m")
 			return (new Manhattan());
@@ -54,10 +67,14 @@ IHeuristic *parse_heuristic(char *flag) {
 IntMatrix	*parse_puzzle(char *filename) {
 	int p_size = 0;
 	std::string line;
+	std::regex row_regex("([0-9]+[space| ]){4}([\n]|([#](.*)?))");
+	std::regex size_regex("-?[0-9]+");
+	std::regex cmnt_regex("[#](.*)?");
 	std::vector< std::vector<int> > *input = new std::vector< std::vector<int> >;
 	std::set<int> numbers;
 	std::pair<std::set<int>::iterator,bool> ret;
 	std::ifstream f (filename);
+
 	if (!f.is_open())
 		throw "error: cannot open file";
 	else {
@@ -66,10 +83,6 @@ IntMatrix	*parse_puzzle(char *filename) {
 			std::istringstream iss(line);
 			std::istream_iterator<std::string> it(iss);
 			std::istream_iterator<std::string> eos;
-			std::regex row_regex("([0-9]+[space| ]){4}([\n]|([#](.*)?))");
-			std::regex size_regex("-?[0-9]+");
-			std::regex cmnt_regex("[#](.*)?");
-
 			if (std::regex_search(line, row_regex) || std::regex_search(line, size_regex)) {
 				for (; it != eos; ) {
 					if (it->front() == '#')
@@ -103,7 +116,6 @@ IntMatrix	*parse_puzzle(char *filename) {
 				throw "error: invalid row size";
 		}
 		if (input->size() == p_size) {
-			g_size = p_size;
 			f.close();
 			return (input);
 		}
@@ -112,17 +124,16 @@ IntMatrix	*parse_puzzle(char *filename) {
 	}
 }
 
-Puzzle	*input_mode(char *s) {
+Puzzle		*input_mode(char *s) {
 	std::string	input(s);
 	std::regex	nbr_regex("-?[0-9]+");
 	IntMatrix	*input_puzzle;
 
 	if (std::regex_search(input, nbr_regex)) {
-		g_size = std::stoi(input);
-		if (g_size < 3)
+		int p_size = std::stoi(input);
+		if (p_size < 3)
 			throw "error: invalid size";
-		// return (new Puzzle(g_size));
-		input_puzzle = generate_solution(g_size);
+		input_puzzle = generate_random(p_size);
 	}
 	else
 		input_puzzle = parse_puzzle(s);
@@ -132,17 +143,17 @@ Puzzle	*input_mode(char *s) {
 
 int main (int argc, char **argv)
 {
-	Astar	a_star;
-	Puzzle	*start;
+	Astar					a_star;
+	Puzzle					*start;
 
-	std::srand ( unsigned ( std::time(0) ) );
+	std::srand (std::time(NULL));
 	if (argc != 3) {
 		display_usage();
 		return (0);
 	}
 	else {
 		try {
-			a_star.set_heuristic((parse_heuristic(argv[1])));
+			a_star.set_heuristic(parse_heuristic(argv[1]));
 			start = input_mode(argv[2]);
 		}
 		catch (char const *msg) {
@@ -150,10 +161,8 @@ int main (int argc, char **argv)
 			return (-1);
 		}
 	}
-	solution = generate_random(g_size);
-	solution_htbl = generate_solution_htbl(*solution);
-	start->calculate_costs(*(a_star.get_heuristic()));
-	start->display();
-
-	// a_start.search(start);
+	::solution = generate_solution(start->get_state().size());
+	::solution_htbl = generate_solution_htbl(*::solution);
+	start->calculate_costs(*a_star.get_heuristic());
+	a_star.search(start);
 }
