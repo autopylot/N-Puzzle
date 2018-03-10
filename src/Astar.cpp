@@ -6,97 +6,79 @@
 /*   By: wlin <wlin@student.42.fr>                  +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2018/01/22 13:02:49 by wlin              #+#    #+#             */
-/*   Updated: 2018/02/02 19:23:36 by wlin             ###   ########.fr       */
+/*   Updated: 2018/02/06 15:07:30 by wlin             ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include "Astar.hpp"
+using namespace std;
 
-AstarPQ::AstarPQ(void) : std::priority_queue<Puzzle*, std::vector<Puzzle*> >() {
-
-}
-
-AstarPQ::~AstarPQ(void) {
-
-}
-
-AstarPQ::iterator AstarPQ::visited_state(Puzzle &curr)
-{
+AstarPQ::iterator AstarPQ::find_state(Puzzle &curr) {
 	AstarPQ::iterator it;
 
-	for (it = this->begin(); it != this->end(); it++)
-	{
-		if (curr.get_state() == (*it)->get_state())
+	for (it = this->begin(); it != this->end(); it++) {
+		if (curr.get_hash() == (*it)->get_hash())
 			return (it);
 	}
 	return (it);
 }
 
-Astar::Astar(void) :
-_selected_states(0),
-_max_states(0),
-_total_moves(0),
-_heuristic(NULL) {}
+void	Astar::search(Puzzle *start, IntMatrix &solution, vector<Position> &solution_htbl) {
+	AstarPQ					open;
+	set<Puzzle*, cmpHash>	closed;
+	map<string, int> 		visitedOpen;
+	map<string, int>		visitedClosed;
 
-Astar::~Astar(void) {
-
-}
-
-void	Astar::search(Puzzle *start) {
-	AstarPQ open;
-	AstarPQ closed;
-
-	start->calculate_costs(*_heuristic);
+	cout << "Starting search..." << endl;
+	
+	start->calculate_costs(*_heuristic, solution_htbl);
 	open.push(start);
+	visitedOpen[start->get_hash()] = 0;
+
 	while (!open.empty()) {
 		Puzzle *curr = open.top();
 		open.pop();
-		closed.push(curr);
-		if (curr->get_state() == (*::solution)) {
-			std::cout << "solution found" << std::endl;
+		closed.insert(curr);
+		visitedClosed[curr->get_hash()] = curr->get_g();
+		this->add_selected();
+		this->set_max_state(open.size() + closed.size());
+
+		if (curr->get_state() == solution) {
+			curr->trace_path();
+			cout << "Total number of selected states: " << _selected_states << endl;
+			cout << "Maximum number of states: " << _max_states << endl;
+			cout << "Number of moves required: " << curr->get_g() << endl;
+			for (AstarPQ::iterator it = open.begin(); it != open.end(); it++)
+				delete *it;
+			for (set<Puzzle*, cmpHash>::iterator it = closed.begin(); it != closed.begin(); it++)
+				delete *it;
 			return ;
 		}
-		std::list<Puzzle*> *successors = curr->generate_successors();
-		std::list<Puzzle*>::iterator it;
-		for (it = successors->begin(); it != successors->end(); it++) {
-			AstarPQ::iterator in_open;
-			AstarPQ::iterator in_closed;
-			(*it)->calculate_costs(*_heuristic);
-			in_open = open.visited_state(**it);
-			in_closed = closed.visited_state(**it);
-			(*it)->display();
-			// if (visited_closed != closed.end())
-			// 	continue;
-			// std::cout << "done with closed" << std::endl;
-			// if (open.visited_state(*it) == open.end())
-			// 	open.push(*it);
-			// std::cout << "done with open" << std::endl;
-			// if (open.visited_state(*it) != open.end()) {
-			// 	std::cout << "found" << std::endl;
-			// 	if ((*it)->cmp_g(*(open.visited_state(*it)))) {
-			// 		open.erase(visited_open);
-			// 		open.push(*it);
-			// 	}
-			// }
-			if (in_open != open.end() && (*it)->cmp_g(*in_open)) {
-				std::cout << "child g cost lower than open state" << std::endl;
-				open.erase(in_open);
-				// *visited_open = *it;
-				// open.insert()
-			}
-			if (in_closed != closed.end() && (*it)->cmp_g(*in_closed)) {
-				std::cout << "child g cost lower than closed state" << std::endl;
-				// *visited_closed = *it;
-				// open.push(*visited_closed);
-				closed.erase(in_closed);
-				in_closed = closed.end();
-			}
-			if (in_open == open.end() && in_closed == closed.end())
-				open.push(*it);
-			std::cout << "done with childrens" << std::endl;
-		}
 
+		vector<Puzzle*> *successors = curr->generate_successors();
+		for (vector<Puzzle*>::iterator neighbor = successors->begin(); neighbor != successors->end(); neighbor++) {
+			(*neighbor)->calculate_costs(*_heuristic, solution_htbl);
+			
+			if ((*neighbor)->get_g() < visitedOpen[(*neighbor)->get_hash()]) {
+				visitedOpen[(*neighbor)->get_hash()] = 0;
+				if (open.find_state(**neighbor) != open.end())
+					open.erase(open.find_state(**neighbor));
+			}
+
+			if ((*neighbor)->get_g() < visitedClosed[(*neighbor)->get_hash()]) {
+				visitedClosed[(*neighbor)->get_hash()] = 0;
+				closed.erase(closed.find(*neighbor));
+			}
+			
+			if (visitedOpen[(*neighbor)->get_hash()] == 0 && visitedClosed[(*neighbor)->get_hash()] == 0) {
+				open.push(*neighbor);
+				visitedOpen[(*neighbor)->get_hash()] = (*neighbor)->get_g();
+			}
+
+			else
+				delete *neighbor;
+		}
 		delete successors;
 	}
-	std::cout << "error: failure" << std::endl;
+	cout << "error: failure" << endl;
 }
